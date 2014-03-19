@@ -59,6 +59,7 @@ require("ep_etherpad-lite/node_modules/npm").load({}, function(er,npm) {
                     }
                     // Close DB connection and shut down
                     etherpadDB.doShutdown(function() {
+                        console.log(sessionIDs.length + " sessions deleted");
                         callback();
                         process.exit(0);
                     });
