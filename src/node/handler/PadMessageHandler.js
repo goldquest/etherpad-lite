@@ -205,6 +205,8 @@ exports.handleMessage = function(client, message)
       } else {
         messageLogger.warn("Dropped message, unknown COLLABROOM Data  Type " + message.data.type);
       }
+    } else if (message.type == "KICKED_RECONNECT") {
+        handleKickedReconnect(client, message);
     } else {
       messageLogger.warn("Dropped message, unknown Message Type " + message.type);
     }
@@ -230,6 +232,11 @@ exports.handleMessage = function(client, message)
             token : message.token,
             password: message.password
           };
+        } else if(message.type == "KICKED_RECONNECT") { // replace sessionIDs, if renewed
+            var connectionAuthInfo = sessioninfos[client.id].auth;
+            if (message.sessionID && connectionAuthInfo.token === message.token && connectionAuthInfo.sessionID !== message.sessionID) {
+                sessioninfos[client.id].auth.sessionID = message.sessionID
+            }
         }
 
         // Note: message.sessionID is an entirely different kind of
@@ -715,6 +722,19 @@ function handleUserChanges(data, cb)
     cb();
     if(err) console.warn(err.stack || err)
   });
+}
+
+/**
+ * Handles a KICKED_RECONNECT message, where the client tried to reconnect after he was kicked
+ * (e.g. due to a session expiration)
+ *
+ * Emits to the channel "reallow". After receiving the message on this channel, the client reloads the pad.
+ *
+ * @param client the client that send this message
+ * @param message the message from the client
+ */
+function handleKickedReconnect(client, message) {
+    client.emit('reallow');
 }
 
 exports.updatePadClients = function(pad, callback)

@@ -267,6 +267,8 @@ function handshake()
           // got kicked
           $("#editorcontainer").hide();
           $("#editorloadingbox").show();
+
+          handleKickedReconnect();
         }
       }
       else if(obj.accessStatus == "needPassword")
@@ -363,6 +365,57 @@ function handshake()
       }
     }
   });
+
+  /**
+   *  Tries to reconnect to the server after the client was kicked, providing the session and token cookie.
+   *  If a valid session could be presented, the server emits on the channel "reallow" and the client reloads the page.
+   *  If not, the pad disconnects.
+   */
+  function handleKickedReconnect()
+  {
+
+    /**
+     * Event, which sends the session and token cookie to the server.
+     * Gets called in an interval
+     */
+    function reconnectEvent()
+    {
+      var sessionID = decodeURIComponent(readCookie("sessionID"));
+      var token = readCookie("token");
+
+      socket.json.send({
+        type: "KICKED_RECONNECT",
+        component: "pad",
+        token: token,
+        sessionID: sessionID
+      })
+    }
+
+    var kickedReconnectInterval = setInterval(reconnectEvent, 2000);
+    pad.collabClient.setChannelState("RECONNECTING");
+
+    /**
+     * Event, which disconnects the pad, if reconnecting fails
+     * Gets called after a timeout
+     */
+    function disconnectEvent()
+    {
+      clearInterval(kickedReconnectInterval);
+      pad.collabClient.setChannelState("DISCONNECTED", "reconnect_timeout");
+    }
+
+    var kickedDisconnectTimeout = setTimeout(disconnectEvent, 10000);
+
+
+    socket.once('reallow', function(obj) {
+      clearInterval(kickedReconnectInterval);
+      clearInterval(kickedDisconnectTimeout);
+      pad.collabClient.setChannelState("CONNECTED");
+      window.location = window.location;
+    });
+
+  }
+
   // Bind the colorpicker
   var fb = $('#colorpicker').farbtastic({ callback: '#mycolorpickerpreview', width: 220});
   // Bind the read only button  
